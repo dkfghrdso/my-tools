@@ -5,6 +5,7 @@ if [ -f /etc/redhat-release ]; then
     # CentOS 或 RHEL
     PACKAGE_MANAGER="yum"
     INSTALL_CMD="$PACKAGE_MANAGER install -y"
+    sudo yum install epel-release -y # 启用 EPEL 存储库
 elif [ -f /etc/debian_version ]; then
     # Debian 或 Ubuntu
     PACKAGE_MANAGER="apt"
@@ -22,7 +23,7 @@ elif [ "$PACKAGE_MANAGER" == "apt" ]; then
 fi
 
 # 安装基本工具
-sudo $INSTALL_CMD \
+sudo $INSTALL_CMD --allowerasing \
     tar \
     git \
     wget \
