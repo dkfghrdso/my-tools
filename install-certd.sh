@@ -30,51 +30,35 @@ check_curl() {
         echo -e "${GREEN}curl 已安装${NC}"
     fi
 }
-
 # 检查并安装 Docker
 check_docker() {
     if ! command -v docker &> /dev/null; then
         echo -e "${RED}Docker 未安装，正在安装 Docker...${NC}"
         
-        # 设置临时文件
-        TMP_SCRIPT="/tmp/docker_install.sh"
+        # 第一次尝试：官方安装方式
         INSTALL_SUCCESS=0
-        
-        # 第一次尝试：LinuxMirrors GitHub脚本
-        if curl --connect-timeout 10 -m 10 -sSL https://raw.githubusercontent.com/SuperManito/LinuxMirrors/main/DockerInstallation.sh -o ${TMP_SCRIPT}; then
-            chmod +x ${TMP_SCRIPT}
-            if ${TMP_SCRIPT}; then
+        if command -v apt &> /dev/null; then
+            # Debian/Ubuntu 系统
+            apt update
+            apt install -y apt-transport-https ca-certificates curl software-properties-common
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+            add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+            apt update
+            if apt install -y docker-ce docker-ce-cli containerd.io; then
                 INSTALL_SUCCESS=1
-            else
-                echo -e "${RED}第一种安装方式失败，尝试第二种方式...${NC}"
+            fi
+        elif command -v yum &> /dev/null; then
+            # CentOS/RHEL 系统
+            yum install -y yum-utils
+            yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            if yum install -y docker-ce docker-ce-cli containerd.io; then
+                INSTALL_SUCCESS=1
             fi
         fi
 
-        # 第二次尝试：官方安装方式
+        # 如果官方安装失败，使用 LinuxMirrors.cn 脚本
         if [ $INSTALL_SUCCESS -eq 0 ]; then
-            if command -v apt &> /dev/null; then
-                # Debian/Ubuntu 系统
-                apt update
-                apt install -y apt-transport-https ca-certificates curl software-properties-common
-                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-                add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-                apt update
-                if apt install -y docker-ce docker-ce-cli containerd.io; then
-                    INSTALL_SUCCESS=1
-                fi
-            elif command -v yum &> /dev/null; then
-                # CentOS/RHEL 系统
-                yum install -y yum-utils
-                yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-                if yum install -y docker-ce docker-ce-cli containerd.io; then
-                    INSTALL_SUCCESS=1
-                fi
-            fi
-        fi
-
-        # 第三次尝试：LinuxMirrors.cn 脚本
-        if [ $INSTALL_SUCCESS -eq 0 ]; then
-            echo -e "${RED}前两种安装方式失败，尝试第三种方式...${NC}"
+            echo -e "${RED}官方安装方式失败，尝试使用备选安装方案...${NC}"
             bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
         fi
 
@@ -99,6 +83,7 @@ check_docker() {
         echo -e "${GREEN}Docker 已安装${NC}"
     fi
 }
+
 
 # 检查 Docker Compose
 check_docker_compose() {
