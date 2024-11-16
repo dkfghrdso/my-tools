@@ -35,37 +35,56 @@ check_curl() {
 check_docker() {
     if ! command -v docker &> /dev/null; then
         echo -e "${RED}Docker 未安装，正在安装 Docker...${NC}"
-        # 使用 LinuxMirrors 的 Docker 安装脚本
-        curl -sSL https://raw.githubusercontent.com/SuperManito/LinuxMirrors/main/DockerInstallation.sh | bash
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}Docker 安装失败，请检查网络连接或手动安装 Docker${NC}"
+        
+        # 设置临时文件
+        TMP_SCRIPT="/tmp/docker_install.sh"
+        
+        # 尝试下载 LinuxMirrors 的安装脚本，设置 10 秒超时
+        if curl --connect-timeout 10 -m 10 -sSL https://raw.githubusercontent.com/SuperManito/LinuxMirrors/main/DockerInstallation.sh -o ${TMP_SCRIPT}; then
+            chmod +x ${TMP_SCRIPT}
+            ${TMP_SCRIPT}
+        else
+            echo -e "${RED}下载 LinuxMirrors 脚本失败，使用官方安装脚本...${NC}"
+            
+            # 使用官方安装脚本作为备选方案
+            if command -v apt &> /dev/null; then
+                # Debian/Ubuntu 系统
+                apt update
+                apt install -y apt-transport-https ca-certificates curl software-properties-common
+                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+                add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+                apt update
+                apt install -y docker-ce docker-ce-cli containerd.io
+            elif command -v yum &> /dev/null; then
+                # CentOS/RHEL 系统
+                yum install -y yum-utils
+                yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+                yum install -y docker-ce docker-ce-cli containerd.io
+            else
+                echo -e "${RED}不支持的操作系统，请手动安装 Docker${NC}"
+                exit 1
+            fi
+        fi
+
+        # 启动 Docker 服务
+        systemctl enable docker
+        systemctl start docker
+        
+        # 验证安装
+        if ! command -v docker &> /dev/null; then
+            echo -e "${RED}Docker 安装失败，请手动安装${NC}"
             exit 1
         fi
+        
+        # 测试 Docker 是否正常工作
+        if ! docker run --rm hello-world &> /dev/null; then
+            echo -e "${RED}Docker 安装可能存在问题，请检查安装日志${NC}"
+            exit 1
+        fi
+        
+        echo -e "${GREEN}Docker 安装成功${NC}"
     else
         echo -e "${GREEN}Docker 已安装${NC}"
-    fi
-}
-
-# 检查 Docker Compose
-check_docker_compose() {
-    if ! command -v docker compose &> /dev/null; then
-        echo -e "${RED}Docker Compose 未安装，正在安装...${NC}"
-        # 优先使用包管理器安装
-        if command -v apt &> /dev/null; then
-            apt update && apt install -y docker-compose-plugin
-        elif command -v dnf &> /dev/null; then
-            dnf install -y docker-compose-plugin
-        elif command -v yum &> /dev/null; then
-            yum install -y docker-compose-plugin
-        else
-            # 如果包管理器安装失败，则使用二进制安装
-            DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d\" -f4)
-            curl -SL "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            chmod +x /usr/local/bin/docker-compose
-            ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
-        fi
-    else
-        echo -e "${GREEN}Docker Compose 已安装${NC}"
     fi
 }
 
