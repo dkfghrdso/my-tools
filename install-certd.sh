@@ -38,15 +38,20 @@ check_docker() {
         
         # 设置临时文件
         TMP_SCRIPT="/tmp/docker_install.sh"
+        INSTALL_SUCCESS=0
         
-        # 尝试下载 LinuxMirrors 的安装脚本，设置 10 秒超时
+        # 第一次尝试：LinuxMirrors GitHub脚本
         if curl --connect-timeout 10 -m 10 -sSL https://raw.githubusercontent.com/SuperManito/LinuxMirrors/main/DockerInstallation.sh -o ${TMP_SCRIPT}; then
             chmod +x ${TMP_SCRIPT}
-            ${TMP_SCRIPT}
-        else
-            echo -e "${RED}下载 LinuxMirrors 脚本失败，使用官方安装脚本...${NC}"
-            
-            # 使用官方安装脚本作为备选方案
+            if ${TMP_SCRIPT}; then
+                INSTALL_SUCCESS=1
+            else
+                echo -e "${RED}第一种安装方式失败，尝试第二种方式...${NC}"
+            fi
+        fi
+
+        # 第二次尝试：官方安装方式
+        if [ $INSTALL_SUCCESS -eq 0 ]; then
             if command -v apt &> /dev/null; then
                 # Debian/Ubuntu 系统
                 apt update
@@ -54,16 +59,23 @@ check_docker() {
                 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
                 add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
                 apt update
-                apt install -y docker-ce docker-ce-cli containerd.io
+                if apt install -y docker-ce docker-ce-cli containerd.io; then
+                    INSTALL_SUCCESS=1
+                fi
             elif command -v yum &> /dev/null; then
                 # CentOS/RHEL 系统
                 yum install -y yum-utils
                 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-                yum install -y docker-ce docker-ce-cli containerd.io
-            else
-                echo -e "${RED}不支持的操作系统，请手动安装 Docker${NC}"
-                exit 1
+                if yum install -y docker-ce docker-ce-cli containerd.io; then
+                    INSTALL_SUCCESS=1
+                fi
             fi
+        fi
+
+        # 第三次尝试：LinuxMirrors.cn 脚本
+        if [ $INSTALL_SUCCESS -eq 0 ]; then
+            echo -e "${RED}前两种安装方式失败，尝试第三种方式...${NC}"
+            bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
         fi
 
         # 启动 Docker 服务
@@ -88,6 +100,29 @@ check_docker() {
     fi
 }
 
+# 检查 Docker Compose
+check_docker_compose() {
+    if ! command -v docker compose &> /dev/null; then
+        echo -e "${RED}Docker Compose 未安装，正在安装...${NC}"
+        # 优先使用包管理器安装
+        if command -v apt &> /dev/null; then
+            apt update && apt install -y docker-compose-plugin
+        elif command -v dnf &> /dev/null; then
+            dnf install -y docker-compose-plugin
+        elif command -v yum &> /dev/null; then
+            yum install -y docker-compose-plugin
+        else
+            # 如果包管理器安装失败，则使用二进制安装
+            DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d\" -f4)
+            curl -SL "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+            ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+        fi
+    else
+        echo -e "${GREEN}Docker Compose 已安装${NC}"
+    fi
+}
+
 # 获取服务器IP地址
 get_server_ip() {
     # 尝试多个IP获取服务
@@ -98,12 +133,13 @@ get_server_ip() {
     fi
 }
 
-# 其他函数保持不变...
+# 创建必要的目录
 create_directories() {
     mkdir -p /data/certd
     echo -e "${GREEN}创建数据目录: /data/certd${NC}"
 }
 
+# 创建 docker-compose.yml 文件
 create_docker_compose() {
     cat > /data/certd/docker-compose.yml << 'EOF'
 version: '3'
@@ -125,6 +161,7 @@ EOF
     echo -e "${GREEN}创建 docker-compose.yml 配置文件${NC}"
 }
 
+# 启动服务
 start_service() {
     cd /data/certd
     docker compose up -d
@@ -136,6 +173,7 @@ start_service() {
     fi
 }
 
+# 检查系统要求
 check_system() {
     if [ "$(id -u)" != "0" ]; then
         echo -e "${RED}错误: 请使用 root 权限运行此脚本${NC}"
