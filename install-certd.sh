@@ -35,33 +35,10 @@ check_docker() {
     if ! command -v docker &> /dev/null; then
         echo -e "${RED}Docker 未安装，正在安装 Docker...${NC}"
         
-        # 第一次尝试：官方安装方式
-        INSTALL_SUCCESS=0
-        if command -v apt &> /dev/null; then
-            # Debian/Ubuntu 系统
-            apt update
-            apt install -y apt-transport-https ca-certificates curl software-properties-common
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-            add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-            apt update
-            if apt install -y docker-ce docker-ce-cli containerd.io; then
-                INSTALL_SUCCESS=1
-            fi
-        elif command -v yum &> /dev/null; then
-            # CentOS/RHEL 系统
-            yum install -y yum-utils
-            yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-            if yum install -y docker-ce docker-ce-cli containerd.io; then
-                INSTALL_SUCCESS=1
-            fi
-        fi
-
-        # 如果官方安装失败，使用 LinuxMirrors.cn 脚本
-        if [ $INSTALL_SUCCESS -eq 0 ]; then
-            echo -e "${RED}官方安装方式失败，尝试使用备选安装方案...${NC}"
-            bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
-        fi
-
+        # 直接使用 LinuxMirrors.cn 脚本安装
+        echo -e "${GREEN}使用 LinuxMirrors 快速安装脚本...${NC}"
+        bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
+        
         # 启动 Docker 服务
         systemctl enable docker
         systemctl start docker
@@ -83,7 +60,6 @@ check_docker() {
         echo -e "${GREEN}Docker 已安装${NC}"
     fi
 }
-
 
 # 检查 Docker Compose
 check_docker_compose() {
