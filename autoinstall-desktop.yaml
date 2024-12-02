@@ -71,3 +71,26 @@ autoinstall:
     - curtin in-target --target=/target -- systemctl disable gnome-initial-setup-first-login.service
     - curtin in-target --target=/target -- systemctl mask gnome-initial-setup-first-login.service
     - touch /target/etc/cloud/cloud-init.disabled
+    # 禁用错误报告
+    - curtin in-target --target=/target -- systemctl disable apport.service
+    - curtin in-target --target=/target -- systemctl mask apport.service
+    - sed -i 's/enabled=1/enabled=0/' /target/etc/default/apport
+    # 禁用崩溃报告
+    - curtin in-target --target=/target -- apt-get remove -y whoopsie
+    - curtin in-target --target=/target -- systemctl disable whoopsie.service
+    - curtin in-target --target=/target -- systemctl mask whoopsie.service
+    # 配置错误报告保存到指定目录
+    - mkdir -p /target/home/ubuntu/crash-reports
+    - chmod 777 /target/home/ubuntu/crash-reports
+    - |
+      cat > /target/etc/default/apport << EOF
+      enabled=1
+      report_dir=/home/ubuntu/crash-reports
+      EOF
+    - |
+      cat > /target/etc/apport/crashdb.conf << EOF
+      default:
+          problem_types: ['Bug', 'Package', 'Crash']
+          output_dir: /home/ubuntu/crash-reports
+          db_file: /home/ubuntu/crash-reports/apport.db
+      EOF
