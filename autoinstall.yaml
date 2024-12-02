@@ -6,7 +6,7 @@ autoinstall:
     layout: cn
   identity:
     hostname: ubuntu-server
-    password: "1234"
+    password: "$6$rounds=4096$saltsalt$9ynlPz9tHHGh6YgXqDB8Bz.k8GQjyZeKKsR5K8Sg0.pYqx5UGxwm9RpZthEZjm3FvRqE8EXyLEV6Q/2GYB/Qj1"
     username: root
     realname: Root User
   storage:
