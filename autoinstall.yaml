@@ -60,7 +60,14 @@ autoinstall:
     # 安装必要的包
     - curtin in-target --target=/target -- apt-get update
     - curtin in-target --target=/target -- apt-get install -y ca-certificates apt-transport-https
-    # 禁用桌面初始设置
-    - curtin in-target --target=/target -- apt-get remove -y gnome-initial-setup ubuntu-desktop-bootstrap
-    - curtin in-target --target=/target -- rm -f /usr/lib/gnome-initial-setup/gnome-initial-setup
-    - curtin in-target --target=/target -- touch /target/etc/cloud/cloud-init.disabled
+    # 彻底禁用桌面初始设置
+    - curtin in-target --target=/target -- apt-get purge -y gnome-initial-setup ubuntu-desktop-bootstrap
+    - rm -f /target/usr/lib/gnome-initial-setup/gnome-initial-setup
+    - rm -f /target/usr/share/gnome-initial-setup/
+    - mkdir -p /target/etc/skel/.config
+    - touch /target/etc/skel/.config/gnome-initial-setup-done
+    - touch /target/root/.config/gnome-initial-setup-done
+    - sed -i 's/InitialSetupEnable=true/InitialSetupEnable=false/' /target/etc/gdm3/custom.conf
+    - curtin in-target --target=/target -- systemctl disable gnome-initial-setup-first-login.service
+    - curtin in-target --target=/target -- systemctl mask gnome-initial-setup-first-login.service
+    - touch /target/etc/cloud/cloud-init.disabled
