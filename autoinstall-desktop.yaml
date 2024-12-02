@@ -22,82 +22,83 @@ autoinstall:
     - htop
     - open-vm-tools
     - git
+    - ca-certificates
+    - apt-transport-https
+    - lsof
+    - htop
+    - iotop
+    - iftop
+    - sysstat
+    - dstat
+    - telnet
+    - nmap
+    - tcpdump
+    - traceroute
+    - mtr
+    - iperf3
+    - iproute2
+    - dnsutils
+    - iputils-ping
     - zip
     - unzip
     - tar
+    - gzip
+    - bzip2
     - rsync
     - screen
     - tmux
-    - iftop
-    - iotop
-    - nmap
-    - tcpdump
-    - lsof
     - tree
+    - mc
     - dos2unix
+    - jq
+    - make
+    - gcc
+    - build-essential
+    - python3-pip
     - bash-completion
-    - dnsutils
-    - iputils-ping
-    - telnet
   updates: security
   timezone: Asia/Shanghai
   user-data:
     disable_root: false
     package_upgrade: true
   late-commands:
-    # 确保必要的目录被正确挂载
-    - mkdir -p /target/dev/pts
-    - mount -t devpts devpts /target/dev/pts
-    # 允许root登录
-    - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /target/etc/ssh/sshd_config
-    - sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
-    - sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /target/etc/ssh/sshd_config
-    # 修改软件源
+    # SSH配置 - 无安全限制
+    - |
+      cat > /target/etc/ssh/sshd_config << EOF
+      Port 22
+      ListenAddress 0.0.0.0
+      PermitRootLogin yes
+      PermitEmptyPasswords yes
+      PubkeyAuthentication no
+      PasswordAuthentication yes
+      ChallengeResponseAuthentication no
+      HostbasedAuthentication no
+      GSSAPIAuthentication no
+      UsePAM no
+      AllowAgentForwarding yes
+      AllowTcpForwarding yes
+      X11Forwarding yes
+      PrintMotd no
+      TCPKeepAlive yes
+      ClientAliveInterval 60
+      ClientAliveCountMax 3
+      UseDNS no
+      MaxAuthTries 10
+      MaxSessions 10
+      AcceptEnv LANG LC_*
+      Subsystem sftp /usr/lib/openssh/sftp-server
+      EOF
+    # 修改软件源为中国CDN
     - |
       cat > /target/etc/apt/sources.list << EOF
       deb https://cn.archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse
-      deb https://cn.archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
       deb https://cn.archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
       deb https://cn.archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
+      deb https://cn.archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
       EOF
-    # 更新系统信息
-    - curtin in-target --target=/target -- apt-get update
-    - curtin in-target --target=/target -- apt-get install -y distro-info-data
-    - curtin in-target --target=/target -- apt-get install -y ca-certificates apt-transport-https
-    # 安装必要的包
-    - curtin in-target --target=/target -- apt-get update
-    - curtin in-target --target=/target -- apt-get install -y ca-certificates apt-transport-https
-    # 彻底禁用桌面初始设置
-    - curtin in-target --target=/target -- apt-get purge -y gnome-initial-setup ubuntu-desktop-bootstrap
-    - rm -f /target/usr/lib/gnome-initial-setup/gnome-initial-setup
-    - rm -f /target/usr/share/gnome-initial-setup/
-    - mkdir -p /target/etc/skel/.config
-    - touch /target/etc/skel/.config/gnome-initial-setup-done
-    - touch /target/root/.config/gnome-initial-setup-done
-    - sed -i 's/InitialSetupEnable=true/InitialSetupEnable=false/' /target/etc/gdm3/custom.conf
-    - curtin in-target --target=/target -- systemctl disable gnome-initial-setup-first-login.service
-    - curtin in-target --target=/target -- systemctl mask gnome-initial-setup-first-login.service
+    # 安装和配置 VMware Tools
+    - curtin in-target --target=/target -- apt-get install -y open-vm-tools open-vm-tools-desktop
+    - curtin in-target --target=/target -- systemctl enable vmtoolsd
+    - curtin in-target --target=/target -- systemctl start vmtoolsd
+    # 禁用初始设置向导
     - touch /target/etc/cloud/cloud-init.disabled
-    # 禁用错误报告
-    - curtin in-target --target=/target -- systemctl disable apport.service
-    - curtin in-target --target=/target -- systemctl mask apport.service
-    - sed -i 's/enabled=1/enabled=0/' /target/etc/default/apport
-    # 禁用崩溃报告
-    - curtin in-target --target=/target -- apt-get remove -y whoopsie
-    - curtin in-target --target=/target -- systemctl disable whoopsie.service
-    - curtin in-target --target=/target -- systemctl mask whoopsie.service
-    # 配置错误报告保存到 root 目录
-    - mkdir -p /target/root/crash-reports
-    - chmod 700 /target/root/crash-reports
-    - |
-      cat > /target/etc/default/apport << EOF
-      enabled=1
-      report_dir=/root/crash-reports
-      EOF
-    - |
-      cat > /target/etc/apport/crashdb.conf << EOF
-      default:
-          problem_types: ['Bug', 'Package', 'Crash']
-          output_dir: /root/crash-reports
-          db_file: /root/crash-reports/apport.db
-      EOF
