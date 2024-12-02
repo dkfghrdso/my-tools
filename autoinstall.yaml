@@ -1,14 +1,11 @@
 #cloud-config
 autoinstall:
   version: 1
-  early-commands:
-    - echo "这里的命令会在安装开始前执行"
-    - date >> /tmp/install_time.log
   locale: zh_CN
   keyboard:
     layout: cn
   identity:
-    hostname: ubuntu-server
+    hostname: ubuntu-desktop
     password: "$6$rounds=4096$saltsalt$9ynlPz9tHHGh6YgXqDB8Bz.k8GQjyZeKKsR5K8Sg0.pYqx5UGxwm9RpZthEZjm3FvRqE8EXyLEV6Q/2GYB/Qj1"
     username: root
     realname: Root User
@@ -17,11 +14,7 @@ autoinstall:
       name: direct
     swap:
       size: 0
-  ssh:
-    install-server: true
-    allow-pw: true
   packages:
-    - openssh-server
     - vim
     - curl
     - wget
@@ -51,48 +44,23 @@ autoinstall:
   user-data:
     disable_root: false
     package_upgrade: true
-    # 禁用初始设置向导
-    ubuntu-drivers: false
-    timezone: Asia/Shanghai
-    runcmd:
-      - systemctl disable gnome-initial-setup-first-login
-      - systemctl mask gnome-initial-setup-first-login
-      - rm -f /usr/lib/gnome-initial-setup/gnome-initial-setup
-      - apt-get remove -y gnome-initial-setup
   late-commands:
+    # 允许root登录
     - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /target/etc/ssh/sshd_config
     - sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
     - sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /target/etc/ssh/sshd_config
-    - curtin in-target --target=/target -- apt-get update
-    - curtin in-target --target=/target -- apt-get install -y open-vm-tools
-    # 禁止创建新用户
-    - sed -i 's/^USERGROUPS_ENAB.*/USERGROUPS_ENAB no/' /target/etc/login.defs
-    - sed -i 's/^CREATE_HOME.*/CREATE_HOME no/' /target/etc/login.defs
-    # 创建一个脚本来恢复设置
-    - |
-      echo '#!/bin/bash
-      sed -i "s/^USERGROUPS_ENAB.*/USERGROUPS_ENAB yes/" /etc/login.defs
-      sed -i "s/^CREATE_HOME.*/CREATE_HOME yes/" /etc/login.defs
-      rm -f /etc/cron.d/restore-user-creation
-      ' > /target/usr/local/sbin/restore-user-creation.sh
-    - chmod +x /target/usr/local/sbin/restore-user-creation.sh
-    # 创建定时任务，3小时后恢复
-    - echo "0 */3 * * * root /usr/local/sbin/restore-user-creation.sh" > /target/etc/cron.d/restore-user-creation
-    - chmod 644 /target/etc/cron.d/restore-user-creation
-    # 修改软件源为Ubuntu官方中国CDN
+    # 修改软件源
     - |
       cat > /target/etc/apt/sources.list << EOF
-      deb https://cn.archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
-      deb https://cn.archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
-      deb https://cn.archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
-      deb https://cn.archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
+      deb https://cn.archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse
+      deb https://cn.archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
+      deb https://cn.archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
+      deb https://cn.archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
       EOF
-    # 安装ca-certificates以支持https
-    - curtin in-target --target=/target -- apt-get install -y ca-certificates apt-transport-https
-    # 更新软件源
+    # 安装必要的包
     - curtin in-target --target=/target -- apt-get update
-    # 禁用初始设置向导
-    - curtin in-target --target=/target -- systemctl disable gnome-initial-setup-first-login
-    - curtin in-target --target=/target -- systemctl mask gnome-initial-setup-first-login
-    - rm -f /target/usr/lib/gnome-initial-setup/gnome-initial-setup
-    - curtin in-target --target=/target -- apt-get remove -y gnome-initial-setup
+    - curtin in-target --target=/target -- apt-get install -y ca-certificates apt-transport-https
+    # 禁用桌面初始设置
+    - curtin in-target --target=/target -- apt-get remove -y gnome-initial-setup ubuntu-desktop-bootstrap
+    - curtin in-target --target=/target -- rm -f /usr/lib/gnome-initial-setup/gnome-initial-setup
+    - curtin in-target --target=/target -- touch /target/etc/cloud/cloud-init.disabled
