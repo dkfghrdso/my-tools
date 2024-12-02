@@ -1,0 +1,40 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: zh_CN
+  keyboard:
+    layout: cn
+  identity:
+    hostname: ubuntu-server
+    password: "$6$xyz$LtJP1N0z57DIGT5zj.kFvFVVZjRWWyxQGKlg0SxGkQFMGxGE9EHpAXbxDhTZ7jh.EB9UO33Zw7.4Lz/aaB/Yj1" # 示例密码：ubuntu
+    username: ubuntu
+    realname: Ubuntu User
+  storage:
+    layout:
+      name: direct
+    swap:
+      size: 0
+  network:
+    network:
+      version: 2
+      ethernets:
+        eth0:
+          dhcp4: true
+  ssh:
+    install-server: true
+    allow-pw: true
+  packages:
+    - openssh-server
+    - vim
+    - curl
+    - wget
+    - net-tools
+    - htop
+  updates: security
+  timezone: Asia/Shanghai
+  user-data:
+    disable_root: false
+    package_upgrade: true
+  late-commands:
+    - echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ubuntu
+    - chmod 440 /target/etc/sudoers.d/ubuntu
