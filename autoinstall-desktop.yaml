@@ -45,6 +45,9 @@ autoinstall:
     disable_root: false
     package_upgrade: true
   late-commands:
+    # 确保必要的目录被正确挂载
+    - mkdir -p /target/dev/pts
+    - mount -t devpts devpts /target/dev/pts
     # 允许root登录
     - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /target/etc/ssh/sshd_config
     - sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
@@ -57,6 +60,10 @@ autoinstall:
       deb https://cn.archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
       deb https://cn.archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
       EOF
+    # 更新系统信息
+    - curtin in-target --target=/target -- apt-get update
+    - curtin in-target --target=/target -- apt-get install -y distro-info-data
+    - curtin in-target --target=/target -- apt-get install -y ca-certificates apt-transport-https
     # 安装必要的包
     - curtin in-target --target=/target -- apt-get update
     - curtin in-target --target=/target -- apt-get install -y ca-certificates apt-transport-https
