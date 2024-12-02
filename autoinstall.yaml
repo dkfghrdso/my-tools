@@ -6,9 +6,9 @@ autoinstall:
     layout: cn
   identity:
     hostname: ubuntu-server
-    password: "$6$xyz$LtJP1N0z57DIGT5zj.kFvFVVZjRWWyxQGKlg0SxGkQFMGxGE9EHpAXbxDhTZ7jh.EB9UO33Zw7.4Lz/aaB/Yj1" # 示例密码：ubuntu
-    username: ubuntu
-    realname: Ubuntu User
+    password: "1234"
+    username: root
+    realname: Root User
   storage:
     layout:
       name: direct
@@ -19,7 +19,11 @@ autoinstall:
       version: 2
       ethernets:
         eth0:
-          dhcp4: true
+          dhcp4: false
+          addresses: [192.168.31.200/24]
+          gateway4: 192.168.31.120
+          nameservers:
+            addresses: [8.8.8.8, 114.114.114.114]
   ssh:
     install-server: true
     allow-pw: true
@@ -36,5 +40,6 @@ autoinstall:
     disable_root: false
     package_upgrade: true
   late-commands:
-    - echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ubuntu
-    - chmod 440 /target/etc/sudoers.d/ubuntu
+    - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /target/etc/ssh/sshd_config
+    - sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
+    - sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /target/etc/ssh/sshd_config
