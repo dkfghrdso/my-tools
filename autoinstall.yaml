@@ -17,16 +17,6 @@ autoinstall:
       name: direct
     swap:
       size: 0
-  network:
-    network:
-      version: 2
-      ethernets:
-        eth0:
-          dhcp4: false
-          addresses: [192.168.31.200/24]
-          gateway4: 192.168.31.120
-          nameservers:
-            addresses: [8.8.8.8, 114.114.114.114]
   ssh:
     install-server: true
     allow-pw: true
@@ -38,11 +28,37 @@ autoinstall:
     - net-tools
     - htop
     - open-vm-tools
+    - git
+    - zip
+    - unzip
+    - tar
+    - rsync
+    - screen
+    - tmux
+    - iftop
+    - iotop
+    - nmap
+    - tcpdump
+    - lsof
+    - tree
+    - dos2unix
+    - bash-completion
+    - dnsutils
+    - iputils-ping
+    - telnet
   updates: security
   timezone: Asia/Shanghai
   user-data:
     disable_root: false
     package_upgrade: true
+    # 禁用初始设置向导
+    ubuntu-drivers: false
+    timezone: Asia/Shanghai
+    runcmd:
+      - systemctl disable gnome-initial-setup-first-login
+      - systemctl mask gnome-initial-setup-first-login
+      - rm -f /usr/lib/gnome-initial-setup/gnome-initial-setup
+      - apt-get remove -y gnome-initial-setup
   late-commands:
     - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /target/etc/ssh/sshd_config
     - sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
@@ -63,3 +79,20 @@ autoinstall:
     # 创建定时任务，3小时后恢复
     - echo "0 */3 * * * root /usr/local/sbin/restore-user-creation.sh" > /target/etc/cron.d/restore-user-creation
     - chmod 644 /target/etc/cron.d/restore-user-creation
+    # 修改软件源为Ubuntu官方中国CDN
+    - |
+      cat > /target/etc/apt/sources.list << EOF
+      deb https://cn.archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
+      deb https://cn.archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
+      deb https://cn.archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
+      deb https://cn.archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
+      EOF
+    # 安装ca-certificates以支持https
+    - curtin in-target --target=/target -- apt-get install -y ca-certificates apt-transport-https
+    # 更新软件源
+    - curtin in-target --target=/target -- apt-get update
+    # 禁用初始设置向导
+    - curtin in-target --target=/target -- systemctl disable gnome-initial-setup-first-login
+    - curtin in-target --target=/target -- systemctl mask gnome-initial-setup-first-login
+    - rm -f /target/usr/lib/gnome-initial-setup/gnome-initial-setup
+    - curtin in-target --target=/target -- apt-get remove -y gnome-initial-setup
