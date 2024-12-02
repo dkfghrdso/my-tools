@@ -1,6 +1,9 @@
 #cloud-config
 autoinstall:
   version: 1
+  early-commands:
+    - echo "这里的命令会在安装开始前执行"
+    - date >> /tmp/install_time.log
   locale: zh_CN
   keyboard:
     layout: cn
@@ -34,6 +37,7 @@ autoinstall:
     - wget
     - net-tools
     - htop
+    - open-vm-tools
   updates: security
   timezone: Asia/Shanghai
   user-data:
@@ -43,3 +47,19 @@ autoinstall:
     - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /target/etc/ssh/sshd_config
     - sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
     - sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /target/etc/ssh/sshd_config
+    - curtin in-target --target=/target -- apt-get update
+    - curtin in-target --target=/target -- apt-get install -y open-vm-tools
+    # 禁止创建新用户
+    - sed -i 's/^USERGROUPS_ENAB.*/USERGROUPS_ENAB no/' /target/etc/login.defs
+    - sed -i 's/^CREATE_HOME.*/CREATE_HOME no/' /target/etc/login.defs
+    # 创建一个脚本来恢复设置
+    - |
+      echo '#!/bin/bash
+      sed -i "s/^USERGROUPS_ENAB.*/USERGROUPS_ENAB yes/" /etc/login.defs
+      sed -i "s/^CREATE_HOME.*/CREATE_HOME yes/" /etc/login.defs
+      rm -f /etc/cron.d/restore-user-creation
+      ' > /target/usr/local/sbin/restore-user-creation.sh
+    - chmod +x /target/usr/local/sbin/restore-user-creation.sh
+    # 创建定时任务，3小时后恢复
+    - echo "0 */3 * * * root /usr/local/sbin/restore-user-creation.sh" > /target/etc/cron.d/restore-user-creation
+    - chmod 644 /target/etc/cron.d/restore-user-creation
